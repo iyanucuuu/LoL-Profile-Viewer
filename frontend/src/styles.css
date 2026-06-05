@@ -1,0 +1,51 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0f1923;
+  color: #c8dcea;
+  font-family: 'Inter', 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Shared card ── */
+.card {
+  background: #172535;
+  border: 1px solid rgba(130,185,215,.18);
+  border-radius: 10px;
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  animation: cardIn 0.4s ease both;
+}
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(79,180,216,0.35), transparent);
+  pointer-events: none;
+}
+@keyframes cardIn {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ── Section titles ── */
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #6aaccc;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(130,185,215,.12);
+  position: relative;
+}
+.section-title::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 0;
+  width: 36px; height: 1px;
+  background: #4fb4d8;
+}

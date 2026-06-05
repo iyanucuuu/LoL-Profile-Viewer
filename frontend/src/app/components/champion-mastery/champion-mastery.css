@@ -1,0 +1,65 @@
+.mastery-section {
+  background: #172535;
+  border: 1px solid rgba(130,185,215,.18);
+  border-radius: 10px;
+  padding: 20px 22px;
+  position: relative; overflow: hidden;
+  animation: cardIn 0.4s ease 0.15s both;
+  font-family: 'Inter', 'Exo 2', sans-serif;
+}
+.mastery-section::before {
+  content: '';
+  position: absolute; top:0; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, transparent, rgba(79,180,216,.35), transparent);
+}
+@keyframes cardIn { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
+
+.mastery-list { display:flex; flex-direction:column; gap:2px; }
+
+.mastery-item {
+  display:flex; align-items:center; gap:10px;
+  padding:7px 4px; border-radius:6px;
+  transition:background .18s, transform .2s; cursor:default;
+}
+.mastery-item:hover { background:rgba(130,185,215,.07); transform:translateX(4px); }
+
+/* Anillo de progreso SVG */
+.mastery-ring-wrap {
+  flex-shrink: 0; width: 44px; height: 44px; cursor: default;
+}
+.mastery-ring-svg {
+  width: 44px; height: 44px; display: block; overflow: visible;
+}
+.mastery-ring-arc {
+  transition: stroke-dashoffset .6s cubic-bezier(.4,0,.2,1);
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.champ-icon-wrapper { position:relative; flex-shrink:0; }
+.champ-icon {
+  width:40px; height:40px; border-radius:50%;
+  border:2px solid rgba(130,185,215,.2); display:block;
+  transition:border-color .2s, box-shadow .2s;
+}
+.mastery-item:hover .champ-icon { border-color:rgba(79,180,216,.5); box-shadow:0 0 12px rgba(79,180,216,.25); }
+
+.champ-info { flex:1; min-width:0; }
+.champ-name { font-size:0.85rem; color:#c0d8ea; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.champ-points { font-size:0.78rem; color:#7eb8d4; font-weight:600; margin-top:1px; }
+
+/* "Ver más" button */
+.mastery-btn-row { display:flex; gap:6px; margin-top:10px; }
+.mastery-btn-row .mastery-more-btn { margin-top:0; flex:1; }
+.mastery-less-btn { background:rgba(100,160,200,.05) !important; color:#4a6a7a !important; }
+.mastery-less-btn:hover { background:rgba(100,160,200,.1) !important; color:#7ab5d0 !important; }
+
+.mastery-more-btn {
+  width:100%; margin-top:10px;
+  background:rgba(79,180,216,.08); border:1px solid rgba(79,180,216,.2);
+  color:#7eb8d4; font-size:0.75rem; font-weight:600;
+  padding:7px; border-radius:6px; cursor:pointer;
+  transition:background .18s, color .18s;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.mastery-more-btn:hover { background:rgba(79,180,216,.18); color:#4fb4d8; }
+.mastery-more-count { opacity:.6; font-size:0.7rem; }

@@ -1,0 +1,244 @@
+<div class="ranked-card">
+  <h3 class="section-title">RANKED</h3>
+
+  <p class="unranked" *ngIf="ranked.length === 0">Sin clasificar esta temporada</p>
+
+  <div *ngFor="let entry of getSortedRanked()" class="queue-block">
+
+    <!-- Queue header -->
+    <div class="queue-header">
+      <span class="queue-name">{{ entry.queueType === 'RANKED_SOLO_5x5' ? 'Solo / Duo' : 'Flex 5v5' }}</span>
+      <div class="queue-badges">
+        <span class="badge hot" *ngIf="entry.hotStreak">🔥 Hot Streak</span>
+        <span class="badge vet" *ngIf="entry.veteran">⚡ Veterano</span>
+      </div>
+    </div>
+
+    <!-- Emblem + rank info -->
+    <div class="rank-row">
+      <div class="emblem-wrap">
+        <img [src]="riotApi.getRankedEmblemUrl(entry.tier)"
+             (error)="onImgError($event, entry.tier)"
+             class="emblem-img" [alt]="entry.tier" />
+        <div class="tier-glow" [style.background]="riotApi.getTierColor(entry.tier)"></div>
+      </div>
+      <div class="rank-info">
+        <div class="rank-tier" [style.color]="riotApi.getTierColor(entry.tier)">
+          {{ entry.tier | titlecase }}
+          <span class="rank-numeral">{{ entry.rank }}</span>
+        </div>
+        <div class="rank-lp-row">
+          <span class="rank-lp">{{ entry.leaguePoints }} <span class="lp-tag">LP</span></span>
+          <span class="rank-wr-inline" [class.wr-good]="winrate(entry) >= 55" [class.wr-bad]="winrate(entry) < 45">
+            {{ winrate(entry) }}% WR
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Split stats bar -->
+    <div class="split-stats">
+      <div class="split-header">
+        <span class="split-label">SPLIT ACTUAL</span>
+        <span class="split-record">
+          <span class="w">{{ entry.wins }}V</span>
+          <span class="sep"> / </span>
+          <span class="l">{{ entry.losses }}D</span>
+          <span class="sep"> · </span>
+          <span class="total-games">{{ entry.wins + entry.losses }} partidas</span>
+        </span>
+      </div>
+      <div class="wr-bar-bg">
+        <div class="wr-bar-win" [style.width.%]="winrate(entry)" [style.background]="riotApi.getTierColor(entry.tier)"></div>
+        <div class="wr-bar-loss" [style.width.%]="100 - winrate(entry)"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ LP HISTORY CHART (Solo/Duo only) ═══════════════ -->
+    <ng-container *ngIf="entry.queueType === 'RANKED_SOLO_5x5' && lpPoints.length >= 3">
+      <div class="lp-chart-section">
+
+        <!-- ── Summary bar ── -->
+        <div class="lp-summary">
+          <button class="lp-pg-arrow" [disabled]="!chartHasNext" (click)="nextChartPage()" title="Partidas más antiguas">◀</button>
+
+          <div class="lp-summary-center">
+            <div class="lp-summary-top">
+              <span class="lp-summary-label">LP ÚLTIMAS {{ lpPoints.length - 1 }} PARTIDAS</span>
+              <span class="lp-trend" [class]="trendClass">{{ trendArrow }}</span>
+            </div>
+            <div class="lp-summary-stats">
+              <span class="lp-net" [class.net-pos]="netLp >= 0" [class.net-neg]="netLp < 0">
+                {{ netLpStr() }}
+              </span>
+              <span class="lp-summary-record">
+                <span class="lp-w">{{ periodWins }}V</span>
+                <span class="lp-sep"> / </span>
+                <span class="lp-l">{{ periodLosses }}D</span>
+              </span>
+              <span class="lp-date-range">{{ dateRangeLabel }}</span>
+              <span class="lp-games-note">({{ chartPage + 1 }}/{{ chartTotalPages }})</span>
+            </div>
+          </div>
+
+          <button class="lp-pg-arrow" [disabled]="!chartHasPrev" (click)="prevChartPage()" title="Partidas más recientes">▶</button>
+        </div>
+
+        <!-- ── SVG Chart ── -->
+        <div class="lp-chart-wrap" (mouseleave)="clearHover()">
+          <svg [attr.viewBox]="'0 0 ' + CW + ' ' + CH" class="lp-svg" preserveAspectRatio="none">
+            <defs>
+              <!-- Gradient fill under curve -->
+              <linearGradient [attr.id]="'stepFill_' + entry.tier" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   [attr.stop-color]="tierColor" stop-opacity="0.22"/>
+                <stop offset="70%"  [attr.stop-color]="tierColor" stop-opacity="0.06"/>
+                <stop offset="100%" [attr.stop-color]="tierColor" stop-opacity="0.01"/>
+              </linearGradient>
+              <!-- Glow filter for peak -->
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+                <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+
+            <!-- Tier zone backgrounds (subtle colored bands) -->
+            <ng-container *ngFor="let zone of tierZones">
+              <rect [attr.x]="PAD" [attr.y]="zone.y1"
+                    [attr.width]="CW - PAD * 2"
+                    [attr.height]="zone.y2 - zone.y1"
+                    [attr.fill]="zone.color"
+                    fill-opacity="0.04" rx="0"/>
+            </ng-container>
+
+            <!-- Division lines + rank labels -->
+            <ng-container *ngFor="let dl of divisionLines">
+              <line [attr.x1]="PAD" [attr.y1]="dl.y"
+                    [attr.x2]="CW - PAD" [attr.y2]="dl.y"
+                    [attr.stroke]="dl.color" stroke-width="1"
+                    stroke-dasharray="4 5" stroke-opacity="0.55"/>
+              <text [attr.x]="PAD + 4" [attr.y]="dl.y - 4"
+                    [attr.fill]="dl.color" font-size="8.5"
+                    font-family="'Exo 2',Inter,sans-serif" font-weight="800"
+                    opacity="0.9">{{ dl.label }}</text>
+            </ng-container>
+
+            <!-- Fill polygon -->
+            <polygon *ngIf="fillPolygon"
+              [attr.points]="fillPolygon"
+              [attr.fill]="'url(#stepFill_' + entry.tier + ')'"/>
+
+            <!-- Step line -->
+            <polyline [attr.points]="stepPolyline"
+              fill="none"
+              [attr.stroke]="tierColor"
+              stroke-width="2.5"
+              stroke-linecap="square"
+              stroke-linejoin="miter"/>
+
+            <!-- Per-step: colored vertical segments -->
+            <ng-container *ngFor="let dl of deltaLabels; let i = index">
+              <line [attr.x1]="dl.x" [attr.y1]="dl.yTop"
+                    [attr.x2]="dl.x" [attr.y2]="dl.yBot"
+                    [attr.stroke]="dl.win ? '#32c98a' : '#e84558'"
+                    stroke-width="3" stroke-opacity="0.9"/>
+              <!-- Delta text — only if gap is big enough -->
+              <text *ngIf="dl.yBot - dl.yTop > 12"
+                    [attr.x]="dl.x + 4" [attr.y]="dl.yMid + 3.5"
+                    [attr.fill]="dl.win ? '#32c98a' : '#e84558'"
+                    font-size="7.5" font-weight="800"
+                    font-family="'Exo 2',Inter,sans-serif">{{ dl.delta > 0 ? '+' : '' }}{{ dl.delta }}</text>
+              <!-- Invisible hover rect -->
+              <rect [attr.x]="dl.x - 13" [attr.y]="dl.yTop - 8"
+                    [attr.width]="26" [attr.height]="dl.yBot - dl.yTop + 16"
+                    fill="transparent" class="lp-step-hit"
+                    (mouseenter)="onStepHover(dl, i)"
+                    (mouseleave)="clearHover()"/>
+            </ng-container>
+
+            <!-- Peak annotation -->
+            <ng-container *ngIf="peakIdx >= 0 && lpPoints[peakIdx + 1] as pk">
+              <circle [attr.cx]="getLpX(pk.idx)" [attr.cy]="peakY"
+                      r="5" fill="#32c98a" stroke="#0a1520" stroke-width="1.5"
+                      filter="url(#glow)"/>
+              <text [attr.x]="getLpX(pk.idx)" [attr.y]="peakY - 8"
+                    fill="#32c98a" font-size="8" font-weight="800"
+                    text-anchor="middle" font-family="'Exo 2',sans-serif">PICO</text>
+            </ng-container>
+
+            <!-- Hover dot -->
+            <circle *ngIf="hoveredPt && hoveredPt.idx > 0"
+              [attr.cx]="getLpX(hoveredPt.idx)"
+              [attr.cy]="getLpY(hoveredPt.lp)"
+              r="6" [attr.fill]="hoveredPt.win ? '#32c98a' : '#e84558'"
+              stroke="white" stroke-width="2" style="pointer-events:none"/>
+          </svg>
+
+          <!-- ── Rich Tooltip ── -->
+          <div *ngIf="hoveredPt && hoveredPt.idx > 0" class="lp-tooltip"
+               [style.left.px]="hoverX + 16"
+               [style.top.px]="hoverY">
+
+            <!-- Champion icon + result -->
+            <div class="lpt-champ-row" *ngIf="hoveredPt.champion">
+              <img [src]="riotApi.getChampionIconUrl(hoveredPt.champion)"
+                   class="lpt-champ-icon" [alt]="hoveredPt.champion"
+                   (error)="$any($event.target).style.display='none'" />
+              <div class="lpt-champ-info">
+                <span class="lpt-champ-name">{{ hoveredPt.champion }}</span>
+                <span class="lpt-kda">{{ hoveredPt.kills }}/{{ hoveredPt.deaths }}/{{ hoveredPt.assists }}</span>
+              </div>
+            </div>
+
+            <div class="lpt-divider"></div>
+
+            <span class="lpt-res" [class.lpt-win]="hoveredPt.win" [class.lpt-loss]="!hoveredPt.win">
+              {{ hoveredPt.win ? '▲ VICTORIA' : '▼ DERROTA' }}
+            </span>
+            <span class="lpt-delta" [class.lpt-win]="hoveredPt.win" [class.lpt-loss]="!hoveredPt.win">
+              {{ hoveredPt.delta > 0 ? '+' : '' }}{{ hoveredPt.delta }} LP
+            </span>
+            <span class="lpt-lp" [style.color]="tierColor">
+              ~{{ hoveredPt.lp < 0 ? 0 : hoveredPt.lp }} LP total
+            </span>
+            <span class="lpt-date">{{ formatDate(hoveredPt.date) }}</span>
+          </div>
+        </div>
+
+        <!-- ── Result strip with champion mini-icons ── -->
+        <div class="lp-strip-section">
+          <div class="lp-strip-wrap">
+            <svg [attr.viewBox]="'0 0 ' + SW + ' ' + SH" class="lp-strip-svg" preserveAspectRatio="none">
+              <ng-container *ngFor="let pt of lpPoints; let i = index">
+                <rect *ngIf="i > 0"
+                  [attr.x]="getStripX(i)" y="1"
+                  [attr.width]="getStripW()" [attr.height]="SH - 2"
+                  [attr.fill]="pt.win ? '#32c98a' : '#e84558'"
+                  [attr.fill-opacity]="hoveredPt?.idx === i ? 1 : 0.7"
+                  rx="1" class="lp-strip-bar"
+                  (mouseenter)="onStepHover(deltaLabels[i-1], i-1)"
+                  (mouseleave)="clearHover()"/>
+              </ng-container>
+            </svg>
+          </div>
+          <!-- Champion mini icons below strip -->
+          <div class="lp-champ-strip">
+            <ng-container *ngFor="let pt of lpPoints; let i = index">
+              <div *ngIf="i > 0 && pt.champion"
+                   class="lp-champ-mini"
+                   [style.left.%]="(getStripX(i) / SW) * 100"
+                   [class.lp-mini-win]="pt.win"
+                   [class.lp-mini-loss]="!pt.win"
+                   [title]="pt.champion + ' · ' + (pt.win ? 'Victoria' : 'Derrota') + ' · ' + (pt.delta >= 0 ? '+' : '') + pt.delta + ' LP'">
+                <img [src]="riotApi.getChampionIconUrl(pt.champion)"
+                     class="lp-mini-icon" [alt]="pt.champion"
+                     (error)="$any($event.target).style.display='none'" />
+              </div>
+            </ng-container>
+          </div>
+        </div>
+
+      </div>
+    </ng-container>
+
+  </div>
+</div>

@@ -1,0 +1,52 @@
+<div class="mastery-section">
+  <h3 class="section-title">TOP CAMPEONES</h3>
+  <div class="mastery-list">
+    <div *ngFor="let champ of visibleMastery" class="mastery-item">
+
+      <!-- Anillo de progreso SVG -->
+      <div class="mastery-ring-wrap"
+           [title]="(getProgress(champ)*100|number:'1.0-0') + '% al siguiente nivel'">
+        <svg viewBox="0 0 44 44" class="mastery-ring-svg">
+          <!-- Fondo gris del anillo -->
+          <circle cx="22" cy="22" r="18"
+                  fill="none"
+                  stroke="rgba(100,160,200,.12)"
+                  stroke-width="3.5"/>
+          <!-- Arco de progreso, empieza desde arriba (rotate -90) -->
+          <circle cx="22" cy="22" r="18"
+                  fill="none"
+                  [attr.stroke]="levelColor(champ.championLevel)"
+                  stroke-width="3.5"
+                  stroke-linecap="round"
+                  [attr.stroke-dasharray]="RING_C"
+                  [attr.stroke-dashoffset]="ringOffset(champ)"
+                  transform="rotate(-90 22 22)"
+                  class="mastery-ring-arc"/>
+          <!-- Número de nivel en el centro -->
+          <text x="22" y="27"
+                text-anchor="middle"
+                [attr.fill]="levelColor(champ.championLevel)"
+                font-size="13" font-weight="900"
+                font-family="'Exo 2',sans-serif">{{ champ.championLevel }}</text>
+        </svg>
+      </div>
+
+      <div class="champ-icon-wrapper">
+        <img [src]="riotApi.getChampionIconUrl(champ.championName || 'Aatrox')" class="champ-icon" [alt]="champ.championName" />
+      </div>
+      <div class="champ-info">
+        <p class="champ-name">{{ champ.championName || 'Champion ' + champ.championId }}</p>
+        <p class="champ-points">{{ formatPoints(champ.championPoints) }} pts</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mastery-btn-row">
+    <button *ngIf="hasMore" type="button" class="mastery-more-btn" (click)="showMore()">
+      Ver más <span class="mastery-more-count">({{ displayLimit }}/{{ mastery.length }})</span>
+    </button>
+    <button *ngIf="displayLimit > 10" type="button" class="mastery-more-btn mastery-less-btn" (click)="showLess()">
+      Ver menos
+    </button>
+  </div>
+</div>

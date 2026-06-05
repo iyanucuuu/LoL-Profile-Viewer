@@ -1,0 +1,712 @@
+<!-- ===== SPLASH ===== -->
+<div class="splash" *ngIf="showSplash" [class.leaving]="splashLeaving">
+  <div class="splash-particles">
+    <div class="p"></div><div class="p"></div><div class="p"></div>
+    <div class="p"></div><div class="p"></div><div class="p"></div>
+    <div class="p"></div><div class="p"></div><div class="p"></div>
+    <div class="p"></div><div class="p"></div><div class="p"></div>
+    <div class="p"></div><div class="p"></div><div class="p"></div>
+  </div>
+  <div class="splash-glow"></div>
+  <div class="splash-body">
+    <div class="splash-eyebrow">LEAGUE OF LEGENDS</div>
+    <h1 class="splash-title">
+      <span class="st-line1">RIFT</span>
+      <span class="st-line2">SCOPE</span>
+    </h1>
+    <div class="splash-gem-row">
+      <div class="gem-line"></div><div class="gem"></div><div class="gem-line"></div>
+    </div>
+    <p class="splash-sub">Domina el Rift · Conoce tus estadísticas</p>
+    <button type="button" class="enter-btn" (click)="enterApp()">
+      <span class="eb-corner tl"></span><span class="eb-corner tr"></span>
+      <span class="eb-corner bl"></span><span class="eb-corner br"></span>
+      <span class="eb-text">ENTRAR</span>
+    </button>
+  </div>
+  <div class="splash-footer">
+    <div class="sf-line"></div>
+    <span class="sf-text">EUW · SEASON 2026</span>
+    <div class="sf-line"></div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div class="app" *ngIf="!showSplash">
+
+  <!-- Full-page loading -->
+  <div class="load-overlay" *ngIf="loading">
+    <div class="load-rings">
+      <div class="lr lr1"></div><div class="lr lr2"></div><div class="lr lr3"></div>
+    </div>
+    <p class="load-label">CARGANDO INVOCADOR<span class="ld"><i></i><i></i><i></i></span></p>
+  </div>
+
+  <!-- ===== HEADER ===== -->
+  <header class="hdr">
+    <div class="hdr-glow-line"></div>
+    <div class="hdr-pattern"></div>
+    <div class="hdr-sweep"></div>
+
+    <div class="hdr-inner">
+      <!-- Brand -->
+      <div class="hdr-brand">
+        <div class="brand-icon-wrap">
+          <div class="brand-icon-ring"></div>
+          <div class="brand-icon">
+            <span class="bi-sword">⚔</span>
+          </div>
+        </div>
+        <div class="brand-divider"></div>
+        <div class="brand-text">
+          <span class="bt-title">RiftScope</span>
+          <span class="bt-sub">EUW · Season 2026</span>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="hdr-search">
+        <div class="hs-panel">
+          <span class="hs-label">Buscar invocador</span>
+          <div class="hs-inputs">
+            <input [(ngModel)]="searchName" placeholder="Nombre" class="hs-name" (keydown.enter)="search()" />
+            <div class="hs-divider"></div>
+            <span class="hs-hash">#</span>
+            <input [(ngModel)]="searchTag" placeholder="TAG" class="hs-tag" maxlength="5" (keydown.enter)="search()" />
+          </div>
+        </div>
+        <button type="button" class="hs-btn" (click)="search()" [disabled]="loading || loadingMatches">
+          <span class="hs-btn-shine"></span>
+          <span *ngIf="!loading && !loadingMatches" class="hs-btn-text">BUSCAR</span>
+          <span class="hs-dots" *ngIf="loading || loadingMatches"><i></i><i></i><i></i></span>
+        </button>
+      </div>
+    </div>
+    <div class="hdr-bottom-line"></div>
+  </header>
+
+  <!-- ===== CONTENT ===== -->
+  <main class="content" *ngIf="!loading">
+
+    <div class="err-box" *ngIf="error">
+      <span class="err-icon">✕</span> {{ error }}
+    </div>
+
+    <ng-container *ngIf="profile">
+
+      <!-- Profile card -->
+      <app-profile-card [profile]="profile"/>
+
+      <!-- Season loading progress banner -->
+      <div class="season-progress" *ngIf="loadingMatches">
+        <div class="sp-spinner">
+          <div class="sp-ring"></div>
+        </div>
+        <div class="sp-text">
+          <span class="sp-main">Cargando partidas de la temporada</span>
+          <span class="sp-count" *ngIf="seasonTotal !== null">
+            {{ matches.length }} / {{ seasonTotal }}
+          </span>
+          <span class="sp-count" *ngIf="seasonTotal === null">obteniendo lista…</span>
+        </div>
+        <div class="sp-bar-wrap" *ngIf="seasonTotal">
+          <div class="sp-bar-fill" [style.width.%]="(matches.length / seasonTotal) * 100"></div>
+        </div>
+      </div>
+
+      <!-- Perks update banner -->
+      <div class="perks-banner" *ngIf="!perksUpdating && matchesWithoutPerks > 0 && matches.length > 0">
+        <span class="pb-text">🔮 {{ matchesWithoutPerks }} partidas sin datos de runas</span>
+        <button type="button" class="pb-btn" (click)="startUpdatePerks()">
+          Cachear runas ({{ matchesWithoutPerks }} partidas)
+        </button>
+      </div>
+      <div class="perks-banner perks-banner-active" *ngIf="perksUpdating">
+        <span class="pb-text">🔮 Cacheando runas… {{ perksDone }}/{{ perksTotal }}</span>
+        <div class="pb-bar-bg"><div class="pb-bar-fill" [style.width.%]="perksProgress"></div></div>
+        <span class="pb-pct">{{ perksProgress }}%</span>
+      </div>
+
+      <!-- Cache banner (shown when matches were loaded from localStorage) -->
+      <div class="cache-banner" *ngIf="fromCache && matches.length > 0">
+        <span class="cb-text">⚡ Partidas desde caché local · {{ cacheAge }}</span>
+        <button type="button" class="cb-refresh" (click)="clearCacheAndSearch()" [disabled]="loadingMatches">
+          ↻ Actualizar
+        </button>
+      </div>
+
+      <!-- ── TAB SWITCHER ── -->
+      <div class="tab-bar">
+        <button type="button" class="tab-btn" [class.active]="activeTab === 'history'" (click)="setTab('history')">
+          <span class="tab-icon">◈</span>
+          <span class="tab-label">Historial</span>
+          <span class="tab-count" *ngIf="matches.length > 0">{{ matches.length }}</span>
+        </button>
+        <button type="button" class="tab-btn" [class.active]="activeTab === 'champions'" (click)="setTab('champions')">
+          <span class="tab-icon">◈</span>
+          <span class="tab-label">Campeones</span>
+        </button>
+        <button type="button" class="tab-btn" [class.active]="activeTab === 'all-champions'" (click)="setTab('all-champions')">
+          <span class="tab-icon">◇</span>
+          <span class="tab-label">Todos los campeones</span>
+          <span class="tab-count" *ngIf="matches.length > 0">{{ getChampionStats().length }}</span>
+        </button>
+        <button type="button" class="tab-btn" [class.active]="activeTab === 'mastery'" (click)="setTab('mastery')">
+          <span class="tab-icon">✦</span>
+          <span class="tab-label">Maestría</span>
+          <span class="tab-count" *ngIf="profile && profile.mastery.length">{{ profile.mastery.length }}</span>
+        </button>
+        <button type="button" class="tab-btn" [class.active]="activeTab === 'insights'"
+                (click)="setTab('insights'); computeGlobalTrend()"
+                *ngIf="matches.length > 0">
+          <span class="tab-icon">◉</span>
+          <span class="tab-label">Insights</span>
+        </button>
+      </div>
+
+      <!-- ── TAB: HISTORIAL ── -->
+      <div *ngIf="activeTab === 'history'" class="page-layout">
+        <aside class="sidebar">
+          <app-ranked-stats [ranked]="profile.ranked" [matches]="matches" [puuid]="puuid" />
+          <app-champion-mastery [mastery]="profile.mastery" />
+        </aside>
+        <section class="main-area">
+          <app-match-history
+            [matches]="matches"
+            [loadingMatches]="false"
+            [loadingMore]="false"
+            [noMoreMatches]="seasonDone"
+            [puuid]="profile.account.puuid" />
+        </section>
+      </div>
+
+      <!-- ── TAB: CAMPEONES (detail) ── -->
+      <div *ngIf="activeTab === 'champions'" class="champ-detail-view">
+        <div *ngIf="matches.length === 0 && !loadingMatches" class="cs-empty">
+          <span class="cs-empty-icon">◈</span>
+          <p>Esperando partidas…</p>
+        </div>
+        <app-champion-detail
+          *ngIf="matches.length > 0"
+          [matches]="matches"
+          [puuid]="profile.account.puuid"
+          [rankAvg]="getRankAvg()" />
+      </div>
+
+      <!-- ── TAB: TODOS LOS CAMPEONES ── -->
+      <div *ngIf="activeTab === 'all-champions'" class="champ-stats-view">
+
+        <div *ngIf="matches.length === 0 && !loadingMatches" class="cs-empty">
+          <span class="cs-empty-icon">◇</span>
+          <p>Busca un invocador para ver estadísticas</p>
+        </div>
+
+        <div *ngIf="matches.length > 0">
+
+          <!-- ── Filters ── -->
+          <div class="filter-bar">
+            <div class="fb-group">
+              <span class="fb-label">LÍNEA</span>
+              <div class="fb-btns">
+                <button type="button" [class.fb-active]="laneFilter === ''"        (click)="setLane('')">Todas</button>
+                <button type="button" [class.fb-active]="laneFilter === 'TOP'"     (click)="setLane('TOP')">Top</button>
+                <button type="button" [class.fb-active]="laneFilter === 'JUNGLE'"  (click)="setLane('JUNGLE')">Jg</button>
+                <button type="button" [class.fb-active]="laneFilter === 'MIDDLE'"  (click)="setLane('MIDDLE')">Mid</button>
+                <button type="button" [class.fb-active]="laneFilter === 'BOTTOM'"  (click)="setLane('BOTTOM')">ADC</button>
+                <button type="button" [class.fb-active]="laneFilter === 'UTILITY'" (click)="setLane('UTILITY')">Supp</button>
+              </div>
+            </div>
+            <div class="fb-group">
+              <span class="fb-label">COLA</span>
+              <div class="fb-btns">
+                <button type="button" [class.fb-active]="queueFilter === ''"    (click)="setQueue('')">Todas</button>
+                <button type="button" [class.fb-active]="queueFilter === '420'" (click)="setQueue('420')">Solo/Duo</button>
+                <button type="button" [class.fb-active]="queueFilter === '440'" (click)="setQueue('440')">Flex</button>
+              </div>
+            </div>
+            <span class="fb-count" *ngIf="filteredMatchCount() !== matches.length">
+              {{ filteredMatchCount() }} / {{ matches.length }} partidas
+            </span>
+          </div>
+
+          <div class="cs-note">
+            <span>{{ matches.length }} partidas cargadas de la temporada 2026.</span>
+            <span class="cs-note-ref"> Comparativa vs.
+              <strong [style.color]="riotApi.getTierColor(profile.ranked[0]?.tier || 'silver')">
+                {{ getRankLabel() }}
+              </strong> (tu rango Solo/Duo).
+            </span>
+          </div>
+
+          <div class="cs-table-wrap">
+            <table class="cs-table">
+              <thead>
+                <tr>
+                  <th class="cs-th-num">#</th>
+                  <th class="cs-th-champ">Campeón</th>
+                  <th class="cs-th-sort" [class.cs-th-active]="sortCol==='games'" (click)="setSort('games')">
+                    Partidas <span class="sort-arrow">{{ sortCol==='games' ? (sortDir==='desc'?'↓':'↑') : '⇅' }}</span>
+                  </th>
+                  <th class="cs-th-sort" [class.cs-th-active]="sortCol==='wr'" (click)="setSort('wr')">
+                    Victoria <span class="sort-arrow">{{ sortCol==='wr' ? (sortDir==='desc'?'↓':'↑') : '⇅' }}</span>
+                  </th>
+                  <th class="cs-th-sort" [class.cs-th-active]="sortCol==='kda'" (click)="setSort('kda')">
+                    KDA <span class="sort-arrow">{{ sortCol==='kda' ? (sortDir==='desc'?'↓':'↑') : '⇅' }}</span>
+                  </th>
+                  <th>K / D / A (media)</th>
+                  <th class="cs-th-sort" [class.cs-th-active]="sortCol==='cs'" (click)="setSort('cs')">
+                    CS/min <span class="th-avg">vs {{ getRankLabel() }}</span>
+                    <span class="sort-arrow">{{ sortCol==='cs' ? (sortDir==='desc'?'↓':'↑') : '⇅' }}</span>
+                  </th>
+                  <th class="cs-th-sort" [class.cs-th-active]="sortCol==='dmg'" (click)="setSort('dmg')">
+                    Daño/partida <span class="th-avg">vs {{ getRankLabel() }}</span>
+                    <span class="sort-arrow">{{ sortCol==='dmg' ? (sortDir==='desc'?'↓':'↑') : '⇅' }}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let s of getChampionStats(); let i = index" class="cs-row">
+                  <!-- Row number -->
+                  <td class="cs-td-num">{{ i + 1 }}</td>
+                  <!-- Champion -->
+                  <td class="cs-td-champ">
+                    <img [src]="riotApi.getChampionIconUrl(s.championName)" class="cs-champ-img" [alt]="s.championName" />
+                    <span class="cs-champ-name">{{ s.championName }}</span>
+                  </td>
+                  <!-- Games -->
+                  <td class="cs-td-center">
+                    <span class="cs-games">{{ s.games }}</span>
+                    <span class="cs-wl">
+                      <span class="cs-w">{{ s.wins }}V</span>
+                      <span class="cs-wl-sep">/</span>
+                      <span class="cs-l">{{ s.games - s.wins }}D</span>
+                    </span>
+                  </td>
+                  <!-- Winrate -->
+                  <td class="cs-td-wr">
+                    <span class="cs-wr-pct"
+                      [class.cs-wr-good]="csWinrate(s) >= 55"
+                      [class.cs-wr-bad]="csWinrate(s) < 45">{{ csWinrate(s) }}%</span>
+                    <div class="cs-wr-bar-bg">
+                      <div class="cs-wr-bar-fill"
+                           [class.cs-wr-good]="csWinrate(s) >= 55"
+                           [class.cs-wr-bad]="csWinrate(s) < 45"
+                           [style.width.%]="csWinrate(s)"></div>
+                    </div>
+                  </td>
+                  <!-- KDA ratio -->
+                  <td class="cs-td-center">
+                    <span class="cs-kda-val"
+                      [class.cs-kda-good]="(+csKda(s)) >= 3"
+                      [class.cs-kda-ok]="(+csKda(s)) >= 2 && (+csKda(s)) < 3">{{ csKda(s) }}</span>
+                  </td>
+                  <!-- Avg K/D/A -->
+                  <td class="cs-td-kda">
+                    <span class="cs-k">{{ csAvgKills(s) }}</span>
+                    <span class="cs-slash"> / </span>
+                    <span class="cs-d">{{ csAvgDeaths(s) }}</span>
+                    <span class="cs-slash"> / </span>
+                    <span class="cs-a">{{ csAvgAssists(s) }}</span>
+                  </td>
+                  <!-- CS/min vs rank -->
+                  <td class="cs-td-center">
+                    <span class="cs-cspm">{{ csPerMin(s) }}/m</span>
+                    <span class="cs-vs-rank" [class.vs-good]="csDiffGood(s)" [class.vs-bad]="!csDiffGood(s)">
+                      {{ csDiff(s) }}
+                    </span>
+                  </td>
+                  <!-- Avg damage vs rank -->
+                  <td class="cs-td-center">
+                    <span class="cs-dmg">{{ csAvgDmg(s) }}</span>
+                    <span class="cs-vs-rank" [class.vs-good]="dmgDiffGood(s)" [class.vs-bad]="!dmgDiffGood(s)">
+                      {{ dmgDiff(s) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── TAB: MAESTRÍA ── -->
+      <div *ngIf="activeTab === 'mastery'" class="mastery-view">
+
+        <div *ngIf="!profile || !profile.mastery.length" class="cs-empty">
+          <span class="cs-empty-icon">✦</span>
+          <p>Sin datos de maestría</p>
+        </div>
+
+        <div *ngIf="profile && profile.mastery.length">
+          <div class="mastery-toolbar">
+            <span class="mastery-count">{{ profile.mastery.length }} campeones</span>
+            <div class="mastery-sort-btns">
+              <span class="fb-label">ORDENAR</span>
+              <button type="button" [class.fb-active]="masterySortCol==='points'" (click)="setMasterySort('points')">Puntos</button>
+              <button type="button" [class.fb-active]="masterySortCol==='name'"   (click)="setMasterySort('name')">Nombre</button>
+            </div>
+          </div>
+
+          <div class="mastery-list-grid">
+            <div *ngFor="let m of getMasterySorted(); let i = index" class="mastery-card" (click)="openMasteryModal(m)" style="cursor:pointer">
+              <span class="mc-rank">{{ i + 1 }}</span>
+              <img [src]="riotApi.getChampionIconUrl(m.championName || '')"
+                   class="mc-icon" [alt]="m.championName" />
+              <div class="mc-info">
+                <span class="mc-name">{{ m.championName || 'Campeón ' + m.championId }}</span>
+                <div class="mc-progress-wrap">
+                  <div class="mc-progress-bar"
+                       [style.width.%]="masteryPct(m)"
+                       [style.background]="masteryLevelColor(m.championLevel)">
+                  </div>
+                </div>
+                <span class="mc-next">{{ masteryNextLabel(m) }}</span>
+              </div>
+              <div class="mc-right">
+                <span class="mc-level" [style.color]="masteryLevelColor(m.championLevel)">{{ m.championLevel }}</span>
+                <span class="mc-pts">{{ formatMasteryPts(m.championPoints) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── TAB: ITEMS ── -->
+      <div *ngIf="activeTab === 'items'" class="items-view">
+        <div class="items-analyzer">
+          <div class="ia-header">
+            <span class="ia-title">ANALIZADOR DE ITEMS</span>
+            <span class="ia-sub">¿Con qué item y campeón ganas más contra cada rival?</span>
+          </div>
+
+          <div class="ia-controls">
+            <div class="ia-select-group">
+              <label class="ia-label">Campeón</label>
+              <select class="ia-select" [(ngModel)]="itemAnalChamp" (change)="itemAnalResult=null">
+                <option value="">— Selecciona —</option>
+                <option *ngFor="let c of getChampNamesPlayed()" [value]="c">{{ c }}</option>
+              </select>
+            </div>
+
+            <div class="ia-select-group">
+              <label class="ia-label">Item</label>
+              <select class="ia-select" [(ngModel)]="itemAnalItemId" (change)="itemAnalResult=null">
+                <option [value]="0">— Selecciona —</option>
+                <option *ngFor="let it of getPlayerItems()" [value]="it.id">
+                  {{ it.name }} (×{{ it.count }})
+                </option>
+              </select>
+            </div>
+
+            <button type="button" class="ia-btn"
+                    [disabled]="!itemAnalChamp || !itemAnalItemId || itemAnalLoading"
+                    (click)="runItemAnalysis()">
+              <span *ngIf="!itemAnalLoading">Analizar</span>
+              <span *ngIf="itemAnalLoading" class="cd-build-spin"></span>
+            </button>
+          </div>
+
+          <!-- Preview: item icon -->
+          <div class="ia-preview" *ngIf="itemAnalItemId">
+            <img [src]="riotApi.getItemIconUrl(+itemAnalItemId)" class="ia-item-icon" />
+            <span class="ia-item-name">{{ riotApi.getItemDetail(+itemAnalItemId)?.name }}</span>
+            <span class="ia-item-gold">{{ riotApi.getItemDetail(+itemAnalItemId)?.gold }}g</span>
+          </div>
+
+          <div class="ia-error" *ngIf="itemAnalError">{{ itemAnalError }}</div>
+
+          <!-- Results -->
+          <ng-container *ngIf="itemAnalResult && !itemAnalLoading">
+            <div class="ia-results-hdr">
+              <span>{{ itemAnalResult.matchups.length }} rivales · mín. 2 partidas</span>
+            </div>
+            <div class="ia-results-empty" *ngIf="itemAnalResult.matchups.length === 0">
+              No hay suficientes datos (necesitas ≥2 partidas contra el mismo rival con este item)
+            </div>
+            <div class="ia-table" *ngIf="itemAnalResult.matchups.length > 0">
+              <div class="ia-table-hdr">
+                <span>Rival</span><span>Partidas</span><span>WR con item</span><span>Barra</span>
+              </div>
+              <div *ngFor="let m of itemAnalResult.matchups" class="ia-table-row"
+                   [class.ia-row-good]="m.wr >= 55" [class.ia-row-bad]="m.wr < 45">
+                <div class="ia-champ-cell">
+                  <img [src]="riotApi.getChampionIconUrl(m.enemy)" class="ia-champ-icon" />
+                  <span>{{ m.enemy }}</span>
+                </div>
+                <span class="ia-games">{{ m.games }}p ({{ m.wins }}V)</span>
+                <span class="ia-wr" [class.wr-good]="m.wr >= 55" [class.wr-bad]="m.wr < 45">{{ m.wr }}%</span>
+                <div class="ia-bar-wrap">
+                  <div class="ia-bar-fill"
+                       [style.width.%]="m.wr"
+                       [class.ibf-good]="m.wr >= 55"
+                       [class.ibf-bad]="m.wr < 45"
+                       [class.ibf-mid]="m.wr >= 45 && m.wr < 55">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- ── TAB: INSIGHTS ── -->
+      <div *ngIf="activeTab === 'insights'" class="insights-view">
+
+        <div *ngIf="!globalTrend" class="cs-empty">
+          <span class="cs-empty-icon">◉</span>
+          <p>Calculando insights…</p>
+        </div>
+
+        <!-- ══════════ COACH AUTOMÁTICO ══════════ -->
+        <div class="coach-section" *ngIf="coachTips.length > 0">
+          <div class="coach-hdr">
+            <div class="coach-hdr-left">
+              <span class="coach-icon-big">🤖</span>
+              <div>
+                <span class="coach-title">COACH AUTOMÁTICO</span>
+                <span class="coach-sub">Análisis de tus {{ matches.length }} partidas · Priorizado por impacto en LP</span>
+              </div>
+            </div>
+            <span class="coach-badge">{{ coachTips.length }} consejos</span>
+          </div>
+
+          <div class="coach-grid">
+            <div *ngFor="let tip of coachTips; let i = index"
+                 class="coach-card"
+                 [class.coach-critical]="tip.severity === 'critical'"
+                 [class.coach-warning]="tip.severity === 'warning'"
+                 [class.coach-info]="tip.severity === 'info'"
+                 [class.coach-good]="tip.severity === 'good'"
+                 [class.coach-expanded]="coachExpanded[i]"
+                 (click)="coachExpanded[i] = !coachExpanded[i]">
+
+              <!-- Severity bar -->
+              <div class="coach-sev-bar"></div>
+
+              <!-- Header row -->
+              <div class="coach-card-hdr">
+                <span class="coach-tip-icon">{{ tip.icon }}</span>
+                <div class="coach-tip-meta">
+                  <span class="coach-sev-badge"
+                    [class.csb-critical]="tip.severity === 'critical'"
+                    [class.csb-warning]="tip.severity === 'warning'"
+                    [class.csb-info]="tip.severity === 'info'"
+                    [class.csb-good]="tip.severity === 'good'">
+                    {{ tip.severity === 'critical' ? 'CRÍTICO' : tip.severity === 'warning' ? 'MEJORABLE' : tip.severity === 'good' ? 'POSITIVO' : 'CONSEJO' }}
+                  </span>
+                  <span class="coach-tip-title">{{ tip.title }}</span>
+                </div>
+                <span class="coach-stat-pill">{{ tip.stat }}</span>
+                <span class="coach-chevron" [class.coach-chevron-open]="coachExpanded[i]">▾</span>
+              </div>
+
+              <!-- Body (expanded) -->
+              <div class="coach-card-body" *ngIf="coachExpanded[i]">
+                <p class="coach-msg">{{ tip.message }}</p>
+                <div class="coach-action">
+                  <span class="coach-action-icon">💡</span>
+                  <span>{{ tip.action }}</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <!-- ══════════ FIN COACH ══════════ -->
+
+        <ng-container *ngIf="globalTrend as gt">
+
+          <!-- ── Resumen rápido ── -->
+          <div class="ins-hero-row">
+
+            <div class="ins-kpi" [class.kpi-good]="gt.streakWin >= 3" [class.kpi-bad]="gt.streakLoss >= 3">
+              <span class="ins-kpi-val" *ngIf="gt.streakWin > 0">🔥 {{ gt.streakWin }} victorias</span>
+              <span class="ins-kpi-val" *ngIf="gt.streakLoss > 0">❄️ {{ gt.streakLoss }} derrotas</span>
+              <span class="ins-kpi-val" *ngIf="gt.streakWin === 0 && gt.streakLoss === 0">—</span>
+              <span class="ins-kpi-lab">racha actual</span>
+            </div>
+
+            <div class="ins-kpi" [class.kpi-good]="gt.last10Wr > gt.allWr + 5" [class.kpi-bad]="gt.last10Wr < gt.allWr - 5">
+              <span class="ins-kpi-val" [class.wr-good]="gt.last10Wr >= 55" [class.wr-bad]="gt.last10Wr < 45">{{ gt.last10Wr }}%</span>
+              <span class="ins-kpi-lab">WR últimas 10 <em [class.vs-good]="gt.last10Wr > gt.allWr" [class.vs-bad]="gt.last10Wr < gt.allWr">
+                ({{ gt.last10Wr >= gt.allWr ? '+' : '' }}{{ gt.last10Wr - gt.allWr }}% vs temporada)
+              </em></span>
+            </div>
+
+            <div class="ins-kpi">
+              <span class="ins-kpi-val wr-good">{{ gt.bestHour }}</span>
+              <span class="ins-kpi-lab">mejor franja horaria</span>
+            </div>
+
+            <div class="ins-kpi">
+              <span class="ins-kpi-val wr-bad">{{ gt.worstHour }}</span>
+              <span class="ins-kpi-lab">peor franja horaria</span>
+            </div>
+
+            <div class="ins-kpi" *ngIf="gt.tiltRisk">
+              <span class="ins-kpi-val" style="color:#f0c060">⚠ TILT</span>
+              <span class="ins-kpi-lab">tu WR baja mucho en la 3ª+ partida</span>
+            </div>
+
+          </div>
+
+          <!-- ── Grid de secciones ── -->
+          <div class="ins-grid">
+
+            <!-- Horario -->
+            <div class="ins-card">
+              <div class="ins-card-hdr">
+                <span class="ins-card-title">RENDIMIENTO POR HORA</span>
+                <span class="ins-card-badge">mejor: {{ gt.bestHour }} · peor: {{ gt.worstHour }}</span>
+              </div>
+              <div class="ins-bar-list">
+                <div *ngFor="let h of gt.hourSlots" class="ins-bar-row">
+                  <span class="ins-bar-label">{{ h.label }}</span>
+                  <div class="ins-bar-track">
+                    <div class="ins-bar-fill"
+                         [style.width.%]="h.wr"
+                         [class.ibf-good]="h.wr >= 55"
+                         [class.ibf-bad]="h.wr < 45"
+                         [class.ibf-mid]="h.wr >= 45 && h.wr < 55">
+                    </div>
+                  </div>
+                  <span class="ins-bar-wr"
+                        [class.wr-good]="h.wr >= 55"
+                        [class.wr-bad]="h.wr < 45">{{ h.wr }}%</span>
+                  <span class="ins-bar-games">×{{ h.games }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Día de la semana -->
+            <div class="ins-card">
+              <div class="ins-card-hdr">
+                <span class="ins-card-title">RENDIMIENTO POR DÍA</span>
+                <span class="ins-card-badge">mejor: {{ gt.bestDay }} · peor: {{ gt.worstDay }}</span>
+              </div>
+              <div class="ins-bar-list">
+                <div *ngFor="let d of gt.daySlots" class="ins-bar-row">
+                  <span class="ins-bar-label">{{ d.label }}</span>
+                  <div class="ins-bar-track">
+                    <div class="ins-bar-fill"
+                         [style.width.%]="d.wr"
+                         [class.ibf-good]="d.wr >= 55"
+                         [class.ibf-bad]="d.wr < 45"
+                         [class.ibf-mid]="d.wr >= 45 && d.wr < 55">
+                    </div>
+                  </div>
+                  <span class="ins-bar-wr"
+                        [class.wr-good]="d.wr >= 55"
+                        [class.wr-bad]="d.wr < 45">{{ d.wr }}%</span>
+                  <span class="ins-bar-games">×{{ d.games }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fatiga de sesión -->
+            <div class="ins-card" [class.ins-card-warn]="gt.tiltRisk">
+              <div class="ins-card-hdr">
+                <span class="ins-card-title">FATIGA DE SESIÓN</span>
+                <span class="ins-card-badge">{{ gt.tiltRisk ? '⚠ Riesgo de tilt detectado' : 'WR por posición en sesión' }}</span>
+              </div>
+              <div class="ins-bar-list">
+                <div *ngFor="let s of gt.sessionPos" class="ins-bar-row">
+                  <span class="ins-bar-label">{{ s.pos }}</span>
+                  <div class="ins-bar-track">
+                    <div class="ins-bar-fill"
+                         [style.width.%]="s.wr"
+                         [class.ibf-good]="s.wr >= 55"
+                         [class.ibf-bad]="s.wr < 45"
+                         [class.ibf-mid]="s.wr >= 45 && s.wr < 55">
+                    </div>
+                  </div>
+                  <span class="ins-bar-wr"
+                        [class.wr-good]="s.wr >= 55"
+                        [class.wr-bad]="s.wr < 45">{{ s.wr }}%</span>
+                  <span class="ins-bar-games">×{{ s.games }}</span>
+                </div>
+              </div>
+              <p class="ins-card-hint" *ngIf="gt.tiltRisk">
+                Tu winrate baja notablemente en la 3ª partida o más de una misma sesión. Considera hacer una pausa después de 2 partidas seguidas.
+              </p>
+            </div>
+
+            <!-- Tendencia semanal -->
+            <div class="ins-card ins-card-wide" *ngIf="gt.weekPoints.length > 2">
+              <div class="ins-card-hdr">
+                <span class="ins-card-title">TENDENCIA SEMANAL</span>
+                <span class="ins-card-badge">últimas {{ gt.weekPoints.length }} semanas</span>
+              </div>
+              <div class="ins-week-chart">
+                <div *ngFor="let w of gt.weekPoints" class="ins-week-col">
+                  <div class="ins-week-bar-wrap">
+                    <div class="ins-week-bar"
+                         [style.height.%]="w.wr"
+                         [class.iwb-good]="w.wr >= 55"
+                         [class.iwb-bad]="w.wr < 45"
+                         [class.iwb-mid]="w.wr >= 45 && w.wr < 55"
+                         [title]="w.label + ' · ' + w.wr + '% WR · ' + w.games + ' partidas'">
+                    </div>
+                  </div>
+                  <span class="ins-week-wr" [class.wr-good]="w.wr >= 55" [class.wr-bad]="w.wr < 45">{{ w.wr }}%</span>
+                  <span class="ins-week-lbl">{{ w.label }}</span>
+                  <span class="ins-week-g">×{{ w.games }}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </ng-container>
+      </div>
+
+    </ng-container>
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="!profile && !error">
+      <div class="es-icon">⚔</div>
+      <p class="es-text">Busca un invocador para comenzar</p>
+      <p class="es-hint">Ej: Derrick rose <span>#MONO</span></p>
+    </div>
+
+  </main>
+
+  <!-- ── Champion mastery modal ── -->
+  <div class="champ-modal-overlay" *ngIf="masteryModal" (click)="closeMasteryModal()">
+    <div class="champ-modal" (click)="$event.stopPropagation()">
+      <!-- Splash background -->
+      <div class="cm-splash"
+           [style.background-image]="'url(https://ddragon.leagueoflegends.com/cdn/img/champion/splash/' + masteryModal.championName + '_0.jpg)'">
+      </div>
+      <div class="cm-overlay"></div>
+      <button class="cm-close" (click)="closeMasteryModal()">✕</button>
+
+      <div class="cm-body">
+        <img [src]="riotApi.getChampionIconUrl(masteryModal.championName || '')"
+             class="cm-icon" [alt]="masteryModal.championName" />
+        <div class="cm-info">
+          <h2 class="cm-name">{{ masteryModal.championName }}</h2>
+          <div class="cm-level-row">
+            <span class="cm-level-badge" [style.color]="masteryLevelColor(masteryModal.championLevel)">
+              Nivel {{ masteryModal.championLevel }}
+            </span>
+          </div>
+          <div class="cm-pts-row">
+            <span class="cm-pts-val">{{ formatMasteryPts(masteryModal.championPoints) }}</span>
+            <span class="cm-pts-lab">puntos de maestría</span>
+          </div>
+          <!-- Progress bar -->
+          <div class="cm-prog-wrap">
+            <div class="cm-prog-fill"
+                 [style.width.%]="masteryPct(masteryModal)"
+                 [style.background]="masteryLevelColor(masteryModal.championLevel)">
+            </div>
+          </div>
+          <span class="cm-next">{{ masteryNextLabel(masteryModal) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

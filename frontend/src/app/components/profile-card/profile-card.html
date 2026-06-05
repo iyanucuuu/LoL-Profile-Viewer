@@ -1,0 +1,16 @@
+<div class="profile-card">
+  <div class="icon-wrapper">
+    <img [src]="riotApi.getProfileIconUrl(profile.summoner.profileIconId)" alt="Profile icon" class="profile-icon" />
+    <span class="level-badge">{{ profile.summoner.summonerLevel }}</span>
+  </div>
+
+  <div class="profile-info">
+    <h2 class="summoner-name">
+      {{ profile.account.gameName }}<span class="tag">#{{ profile.account.tagLine }}</span>
+    </h2>
+    <div class="pc-meta-row">
+      <span class="region-badge">EUW</span>
+      <span class="pc-season-label">Season 2026</span>
+    </div>
+  </div>
+</div>

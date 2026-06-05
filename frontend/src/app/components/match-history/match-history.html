@@ -1,0 +1,183 @@
+<div class="match-history">
+  <div class="mh-header">
+    <h3 class="section-title">HISTORIAL DE PARTIDAS</h3>
+    <span class="mh-count" *ngIf="matches.length > 0">{{ matches.length }} partidas</span>
+  </div>
+
+  <!-- Loading spinner -->
+  <div class="mh-loading" *ngIf="loadingMatches">
+    <div class="ml-rings"><div class="ml-r ml-r1"></div><div class="ml-r ml-r2"></div></div>
+    <span>Cargando partidas...</span>
+  </div>
+
+  <p class="no-matches" *ngIf="!loadingMatches && matches.length === 0">Sin partidas disponibles</p>
+
+  <!-- Match cards grouped by day (paginated) -->
+  <ng-container *ngFor="let match of visibleMatches; let i = index">
+
+    <!-- Day separator -->
+    <div class="day-sep" *ngIf="isDifferentDay(match, i > 0 ? visibleMatches[i-1] : null)">
+      <span class="day-line"></span>
+      <span class="day-label">{{ getDayLabel(match) }}</span>
+      <span class="day-line"></span>
+    </div>
+
+    <!-- Match card -->
+    <div class="match-card"
+         [class.win]="getPlayer(match)?.win"
+         [class.loss]="!getPlayer(match)?.win"
+         [class.expanded]="expandedIndex === i"
+         [style.--idx]="i">
+
+      <ng-container *ngIf="getPlayer(match) as p">
+
+        <!-- ── Compact row ── -->
+        <div class="match-row" (click)="toggleExpand(i)">
+
+          <!-- Result + position + time -->
+          <div class="col-result">
+            <span class="res-text">{{ p.win ? 'Victoria' : 'Derrota' }}</span>
+            <span class="res-pos" *ngIf="getPositionLabel(p)">{{ getPositionLabel(p) }}</span>
+            <span class="res-dur">{{ formatDuration(match.info.gameDuration) }}</span>
+            <span class="res-mode">{{ getQueueLabel(match) }}</span>
+            <span class="res-time">{{ getMatchTime(match) }}</span>
+          </div>
+
+          <!-- Champion + lane opponent -->
+          <div class="col-champ">
+            <div class="champ-img-wrap">
+              <img [src]="riotApi.getChampionIconUrl(p.championName)"
+                   class="champ-img" [alt]="p.championName" />
+            </div>
+            <span class="champ-name">{{ p.championName }}</span>
+            <div class="champ-vs" *ngIf="getLaneOpponent(match) as opp">
+              <span class="vs-txt">vs</span>
+              <img [src]="riotApi.getChampionIconUrl(opp.championName)"
+                   class="opp-ic" [title]="opp.championName" [alt]="opp.championName" />
+            </div>
+          </div>
+
+          <!-- KDA + KP -->
+          <div class="col-kda">
+            <span class="kda-nums">
+              <span class="kda-k">{{ p.kills }}</span>
+              <span class="kda-sep">/</span>
+              <span class="kda-d">{{ p.deaths }}</span>
+              <span class="kda-sep">/</span>
+              <span class="kda-a">{{ p.assists }}</span>
+            </span>
+            <span class="kda-ratio">{{ getKda(p) }} KDA</span>
+            <span class="kda-kp">{{ getKillParticipation(match) }}% KP</span>
+          </div>
+
+          <!-- CS -->
+          <div class="col-cs">
+            <span class="cs-val" [class]="getCsClass(p, match)">
+              {{ getCsPerMin(p, match) }}<span class="cs-unit">/m</span>
+            </span>
+            <span class="cs-target">obj. {{ getCsTarget(match) }}/m</span>
+            <span class="cs-total">{{ getCs(p) }} CS</span>
+          </div>
+
+          <!-- Extra: gold + vision + dmg -->
+          <div class="col-extra">
+            <span class="extra-stat">
+              <span class="extra-ic gold-ic">◈</span>
+              <span class="extra-val gold-val">{{ formatGold(p.goldEarned) }}</span>
+            </span>
+            <span class="extra-stat">
+              <span class="extra-ic vis-ic">👁</span>
+              <span class="extra-val">{{ p.visionScore }}</span>
+            </span>
+            <span class="extra-stat" *ngIf="p.totalDamageDealtToChampions">
+              <span class="extra-ic dmg-ic">⚔</span>
+              <span class="extra-val">{{ formatDmg(p.totalDamageDealtToChampions) }}</span>
+            </span>
+          </div>
+
+          <!-- Items -->
+          <div class="col-items">
+            <div *ngFor="let id of getItems(p)" class="item-wrap">
+              <img [src]="riotApi.getItemIconUrl(id)" class="item-ic" [alt]="''+id" />
+              <div class="item-tip" *ngIf="getItemDetail(id) as d">
+                <span class="it-name">{{ d.name }}</span>
+                <span class="it-gold">{{ d.gold }}g</span>
+                <span class="it-stats" *ngIf="d.stats">{{ d.stats }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Expand toggle -->
+          <div class="col-expand">
+            <span class="expand-arrow" [class.open]="expandedIndex === i">▼</span>
+          </div>
+        </div>
+
+        <!-- ── Expanded: teams ── -->
+        <div class="match-expand" *ngIf="expandedIndex === i">
+          <div class="teams-grid">
+
+            <!-- My team (sorted by position: Top → Jg → Mid → ADC → Sup) -->
+            <div class="team-block">
+              <p class="team-label win-side">▲ TU EQUIPO</p>
+              <div *ngFor="let tp of getMyTeamSorted(match)"
+                   class="team-player"
+                   [class.me]="tp.puuid === puuid">
+                <img [src]="riotApi.getChampionIconUrl(tp.championName)" class="tp-img" />
+                <span class="tp-name" [class.tp-you]="tp.puuid === puuid">
+                  {{ tp.puuid === puuid ? (tp.riotIdGameName || 'Tú') : (tp.riotIdGameName || tp.championName) }}
+                </span>
+                <span class="tp-kda">{{ tp.kills }}/{{ tp.deaths }}/{{ tp.assists }}</span>
+                <span class="tp-dmg" *ngIf="tp.totalDamageDealtToChampions">{{ formatDmg(tp.totalDamageDealtToChampions) }}</span>
+              </div>
+            </div>
+
+            <!-- VS divider -->
+            <div class="vs-divider">VS</div>
+
+            <!-- Opponent team (sorted by position) -->
+            <div class="team-block">
+              <p class="team-label loss-side">▼ RIVAL</p>
+              <div *ngFor="let opp of getOpponents(match)" class="team-player">
+                <img [src]="riotApi.getChampionIconUrl(opp.championName)" class="tp-img" />
+                <span class="tp-name">{{ opp.riotIdGameName || opp.championName }}</span>
+                <span class="tp-kda">{{ opp.kills }}/{{ opp.deaths }}/{{ opp.assists }}</span>
+                <span class="tp-dmg" *ngIf="opp.totalDamageDealtToChampions">{{ formatDmg(opp.totalDamageDealtToChampions) }}</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </ng-container>
+    </div>
+
+  </ng-container>
+
+  <!-- ── Page navigation ── -->
+  <div class="pag-nav" *ngIf="matches.length > 0 && !loadingMatches">
+    <button class="pag-arrow pag-prev"
+            [class.pag-disabled]="!hasPrev"
+            [disabled]="!hasPrev"
+            (click)="prevPage()"
+            title="20 partidas anteriores">
+      ◀
+    </button>
+
+    <div class="pag-info">
+      <span class="pag-range">{{ pageStart + 1 }}–{{ pageEnd }}</span>
+      <span class="pag-sep">de</span>
+      <span class="pag-total">{{ matches.length }}</span>
+      <span class="pag-pages">({{ currentPage + 1 }}/{{ totalPages }})</span>
+    </div>
+
+    <button class="pag-arrow pag-next"
+            [class.pag-disabled]="!hasNext"
+            [disabled]="!hasNext"
+            (click)="nextPage()"
+            title="20 partidas siguientes">
+      ▶
+    </button>
+  </div>
+
+</div>

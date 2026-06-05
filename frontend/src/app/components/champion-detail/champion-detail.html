@@ -1,0 +1,816 @@
+<div class="cd-wrapper">
+
+  <!-- ══════════════════ LEFT: champion list ══════════════════ -->
+  <div class="cd-list">
+    <div class="cd-list-hdr">
+      <span class="cd-list-title">CAMPEONES</span>
+      <span class="cd-list-badge">{{ champList.length }}</span>
+    </div>
+    <div class="cd-list-scroll">
+      <div *ngFor="let c of champList"
+           class="cd-list-item"
+           [class.cd-active]="selected === c.championName"
+           (click)="selectChamp(c.championName)">
+        <img [src]="riotApi.getChampionIconUrl(c.championName)" class="cd-li-img" [alt]="c.championName" />
+        <div class="cd-li-info">
+          <span class="cd-li-name">{{ c.championName }}</span>
+          <span class="cd-li-sub">{{ c.games }}p · {{ kda(c) }} KDA</span>
+        </div>
+        <span class="cd-li-wr" [class.wr-good]="winrate(c) >= 55" [class.wr-bad]="winrate(c) < 45">
+          {{ winrate(c) }}%
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ RIGHT: detail panel ══════════════════ -->
+  <div class="cd-main">
+
+    <!-- Empty state -->
+    <div class="cd-pick-state" *ngIf="!detail">
+      <div class="cd-pick-icon">◇</div>
+      <p class="cd-pick-text">Selecciona un campeón para ver el análisis</p>
+    </div>
+
+    <ng-container *ngIf="detail">
+
+      <!-- ── 1. Hero ── -->
+      <div class="cd-hero">
+        <div class="cd-hero-bg" [style.background-image]="getSplashStyle(detail.championName)"></div>
+        <div class="cd-hero-overlay"></div>
+        <div class="cd-hero-content">
+          <img [src]="riotApi.getChampionIconUrl(detail.championName)" class="cd-hero-icon" [alt]="detail.championName" />
+          <div class="cd-hero-text">
+
+            <!-- Name + position badge + top spells -->
+            <div class="cd-hero-top">
+              <h2 class="cd-hero-name">{{ detail.championName }}</h2>
+              <div class="cd-hero-meta">
+                <span class="cd-pos-badge" *ngIf="detail.topPosition">
+                  {{ positionLabel(detail.topPosition) }}
+                </span>
+                <span class="cd-pos-badge cd-pos-games">{{ detail.games }} partidas</span>
+              </div>
+            </div>
+
+            <!-- Rival filter -->
+            <div class="cd-opp-filter" *ngIf="opponents.length > 0" (click)="$event.stopPropagation()">
+              <span class="cd-opp-label">Filtrar vs</span>
+              <div class="cd-opp-custom-wrap">
+                <div class="cd-opp-trigger" (click)="toggleOppDropdown($event)">
+                  <img *ngIf="opponentFilter"
+                       [src]="riotApi.getChampionIconUrl(opponentFilter)"
+                       class="cd-opp-sel-img" [alt]="opponentFilter" />
+                  <span class="cd-opp-trigger-text">
+                    {{ opponentFilter ? opponentFilter : '— Todos (' + opponents.length + ') —' }}
+                  </span>
+                  <span class="cd-opp-arrow" [class.cd-opp-arrow-open]="oppDropdownOpen">▾</span>
+                </div>
+                <div class="cd-opp-dropdown" *ngIf="oppDropdownOpen">
+                  <div class="cd-opp-opt cd-opp-all" (click)="setOpponentFilter('')">
+                    — Todos los rivales ({{ opponents.length }}) —
+                  </div>
+                  <div *ngFor="let opp of opponents"
+                       class="cd-opp-opt"
+                       [class.cd-opp-opt-active]="opponentFilter === opp"
+                       (click)="setOpponentFilter(opp)">
+                    <img [src]="riotApi.getChampionIconUrl(opp)" class="cd-opp-opt-img" [alt]="opp" />
+                    <span>{{ opp }}</span>
+                  </div>
+                </div>
+              </div>
+              <button *ngIf="opponentFilter" class="cd-opp-clear" (click)="setOpponentFilter('')">✕</button>
+            </div>
+
+            <!-- Stats chips -->
+            <div class="cd-hero-chips">
+              <div class="cd-chip" [class.cd-chip-good]="detail.wr >= 55" [class.cd-chip-bad]="detail.wr < 45">
+                <span class="cd-chip-val" [class.wr-good]="detail.wr >= 55" [class.wr-bad]="detail.wr < 45">{{ detail.wr }}%</span>
+                <span class="cd-chip-lab">victoria</span>
+              </div>
+              <div class="cd-chip">
+                <span class="cd-chip-val">{{ detail.avgKills.toFixed(1) }}/{{ detail.avgDeaths.toFixed(1) }}/{{ detail.avgAssists.toFixed(1) }}</span>
+                <span class="cd-chip-lab">KDA medio</span>
+              </div>
+              <div class="cd-chip">
+                <span class="cd-chip-val kp-val">{{ detail.avgKp }}%</span>
+                <span class="cd-chip-lab">KP medio</span>
+              </div>
+              <div class="cd-chip" [class.cd-chip-good]="detail.csPerMin >= rankAvg.cs" [class.cd-chip-bad]="detail.csPerMin < rankAvg.cs">
+                <span class="cd-chip-val" [class]="csDiffClass()">{{ detail.csPerMin.toFixed(1) }}/m</span>
+                <span class="cd-chip-lab">CS/min <em [class]="csDiffClass()">{{ csDiffStr() }}</em></span>
+              </div>
+              <div class="cd-chip" [class.cd-chip-good]="detail.avgDmg >= rankAvg.dmg" [class.cd-chip-bad]="detail.avgDmg < rankAvg.dmg">
+                <span class="cd-chip-val" [class]="dmgDiffClass()">{{ (detail.avgDmg / 1000).toFixed(1) }}k</span>
+                <span class="cd-chip-lab">daño <em [class]="dmgDiffClass()">{{ dmgDiffStr() }}</em></span>
+              </div>
+              <div class="cd-chip">
+                <span class="cd-chip-val vis-val">{{ detail.avgVision.toFixed(1) }}/m</span>
+                <span class="cd-chip-lab">visión/min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 2. Items más usados (instant, sin API) ── -->
+      <div class="cd-section" *ngIf="inventoryItems.length > 0">
+        <div class="cd-sec-hdr">
+          <span class="cd-sec-title">OBJETOS MÁS USADOS</span>
+          <span class="cd-sec-badge">{{ detail.games }} partidas · fin de partida</span>
+        </div>
+        <div class="cd-items-grid">
+          <div *ngFor="let item of inventoryItems" class="cd-item-card">
+            <div class="cd-item-wrap" [attr.data-tip]="getItemTooltip(item.id)">
+              <img [src]="riotApi.getItemIconUrl(item.id)" class="cd-item-icon" [alt]="''+item.id" />
+            </div>
+            <span class="cd-item-pct">{{ item.pct }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 3. Orden de compra (timelines, carga en fondo) ── -->
+      <div class="cd-section cd-section-dim">
+        <div class="cd-sec-hdr">
+          <span class="cd-sec-title">ORDEN DE COMPRA</span>
+          <span *ngIf="buildLoading" class="cd-sec-badge cd-loading-badge">
+            <span class="cd-build-spin"></span>
+            {{ buildProgress }}% ({{ buildDone }}/{{ buildTotal }})
+          </span>
+          <span *ngIf="!buildLoading && itemBuildByPos.length > 0" class="cd-sec-badge">
+            analizado · {{ buildTotal }} partidas
+          </span>
+        </div>
+        <!-- Progress bar while loading -->
+        <div *ngIf="buildLoading && buildProgress > 0" class="cd-prog-bar">
+          <div class="cd-prog-fill" [style.width.%]="buildProgress"></div>
+        </div>
+        <!-- Results (shown progressively as data arrives) -->
+        <div *ngIf="itemBuildByPos.length > 0" class="cd-build-table">
+          <ng-container *ngFor="let posItems of itemBuildByPos; let posIdx = index">
+            <div class="cd-build-row" *ngIf="posItems.length > 0">
+              <span class="cd-build-ord">{{ ordinal(posIdx + 1) }}</span>
+              <div class="cd-build-items">
+                <div *ngFor="let item of posItems" class="cd-build-item">
+                  <div class="cd-item-wrap" [attr.data-tip]="getItemTooltip(item.id)">
+                    <img [src]="riotApi.getItemIconUrl(item.id)" class="cd-item-icon cd-item-md" [alt]="''+item.id" />
+                  </div>
+                  <div class="cd-item-stats">
+                    <span class="cd-item-pct">{{ item.pct }}%</span>
+                    <span class="cd-item-cnt">×{{ item.count }}</span>
+                  </div>
+                  <span class="cd-item-wr"
+                        [class.wr-good]="item.wr >= 55"
+                        [class.wr-bad]="item.wr < 45">{{ item.wr }}%V</span>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+          <!-- Fila de botas -->
+          <div class="cd-build-row cd-build-boots" *ngIf="bootBuildItems.length > 0">
+            <span class="cd-build-ord cd-build-ord-boot">👟</span>
+            <div class="cd-build-items">
+              <div *ngFor="let boot of bootBuildItems" class="cd-build-item">
+                <div class="cd-item-wrap" [attr.data-tip]="getItemTooltip(boot.id)">
+                  <img [src]="riotApi.getItemIconUrl(boot.id)" class="cd-item-icon cd-item-md" [alt]="''+boot.id" />
+                </div>
+                <div class="cd-item-stats">
+                  <span class="cd-item-pct">{{ boot.pct }}%</span>
+                  <span class="cd-item-cnt">×{{ boot.count }}</span>
+                </div>
+                <span class="cd-item-wr"
+                      [class.wr-good]="boot.wr >= 55"
+                      [class.wr-bad]="boot.wr < 45">{{ boot.wr }}%V</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Waiting for first result -->
+        <div *ngIf="buildLoading && itemBuildByPos.length === 0" class="cd-build-wait">
+          <div class="cd-build-spin-lg"></div>
+          <span>Consultando timelines de partidas…</span>
+        </div>
+        <!-- Failed / no data -->
+        <div *ngIf="!buildLoading && itemBuildByPos.length === 0" class="cd-empty-note">
+          No hay datos de orden de compra disponibles
+        </div>
+      </div>
+
+
+      <!-- ── 4. Forma reciente + Hechizos ── -->
+      <div class="cd-two-col">
+
+        <!-- FORMA RECIENTE (hueco donde estaban las botas) -->
+        <div class="cd-section cd-section-half">
+          <div class="cd-sec-hdr">
+            <span class="cd-sec-title">FORMA RECIENTE</span>
+            <span class="cd-sec-badge">últimas {{ detail.perGame.length > 10 ? 10 : detail.perGame.length }} partidas</span>
+          </div>
+          <div class="cd-recent-dots">
+            <div *ngFor="let g of getRecentForm(detail.perGame)"
+                 class="cd-dot"
+                 [class.cd-dot-win]="g.won"
+                 [class.cd-dot-loss]="!g.won"
+                 [title]="(g.won ? 'Victoria' : 'Derrota') + ' · ' + g.cs.toFixed(1) + ' cs/min · ' + g.deaths + ' muertes'">
+            </div>
+          </div>
+          <div class="cd-streak-row" *ngIf="getStreak(detail.perGame) as s">
+            <span class="cd-streak-badge" [class.cd-streak-win]="s.win" [class.cd-streak-loss]="!s.win">
+              {{ s.win ? '🔥' : '❄️' }} Racha de {{ s.count }} {{ s.win ? 'victorias' : 'derrotas' }}
+            </span>
+          </div>
+          <div class="cd-recent-extra">
+            <div class="cd-re-stat">
+              <span class="cd-re-val" [class.wr-good]="detail.wr >= 55" [class.wr-bad]="detail.wr < 45">{{ detail.wr }}%</span>
+              <span class="cd-re-lab">winrate</span>
+            </div>
+            <div class="cd-re-stat">
+              <span class="cd-re-val">{{ detail.wins }}V / {{ detail.games - detail.wins }}D</span>
+              <span class="cd-re-lab">resultado temporada</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cd-section cd-section-half" *ngIf="detail.topSpells.length > 0">
+          <div class="cd-sec-hdr">
+            <span class="cd-sec-title">HECHIZOS INVOCADOR</span>
+          </div>
+          <div class="cd-spells-list">
+            <div *ngFor="let combo of detail.topSpells; let i = index"
+                 class="cd-spell-row" [class.cd-spell-top]="i === 0">
+              <img [src]="riotApi.getSpellIconUrl(combo.s1)" class="cd-spell-img"
+                   [title]="riotApi.SPELL_LABELS[combo.s1] || ''" />
+              <img [src]="riotApi.getSpellIconUrl(combo.s2)" class="cd-spell-img"
+                   [title]="riotApi.SPELL_LABELS[combo.s2] || ''" />
+              <div class="cd-spell-bar-wrap">
+                <div class="cd-spell-bar" [style.width.%]="combo.pct"></div>
+              </div>
+              <span class="cd-spell-pct">{{ combo.pct }}%</span>
+              <span class="cd-spell-wr"
+                    [class.wr-good]="combo.wr >= 55"
+                    [class.wr-bad]="combo.wr < 45">{{ combo.wr }}%V</span>
+              <span class="cd-spell-count">×{{ combo.count }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── 4b. Progresión temporal + duración (full width) ── -->
+      <div class="cd-section cd-trend-section" *ngIf="detail.trendPeriods.length > 0">
+        <div class="cd-sec-hdr">
+          <span class="cd-sec-title">PROGRESIÓN EN LA TEMPORADA</span>
+          <span class="cd-sec-badge">{{ detail.games }} partidas · divididas en 3 períodos cronológicos</span>
+        </div>
+
+        <div class="cd-trend-row">
+
+          <!-- Duracion widget (izquierda) -->
+          <div class="cd-dur-widget" *ngIf="detail.avgGameMinWin > 0">
+            <div class="cd-dur-mini-title">DURACIÓN MEDIA</div>
+            <div class="cd-dur-mini-grid">
+              <div class="cd-dur-mini-item">
+                <span class="cd-dur-mini-val">{{ detail.avgGameMin.toFixed(0) }}<small>min</small></span>
+                <span class="cd-dur-mini-lab">global</span>
+              </div>
+              <div class="cd-dur-mini-item cd-dur-mini-win">
+                <span class="cd-dur-mini-val wr-good">{{ detail.avgGameMinWin.toFixed(0) }}<small>min</small></span>
+                <span class="cd-dur-mini-lab">victorias</span>
+              </div>
+              <div class="cd-dur-mini-item cd-dur-mini-loss">
+                <span class="cd-dur-mini-val wr-bad">{{ detail.avgGameMinLoss.toFixed(0) }}<small>min</small></span>
+                <span class="cd-dur-mini-lab">derrotas</span>
+              </div>
+            </div>
+            <div class="cd-dur-insight" *ngIf="detail.avgGameMinWin > 0 && detail.avgGameMinLoss > 0">
+              <ng-container *ngIf="detail.avgGameMinWin < detail.avgGameMinLoss">
+                🏆 Mejor en early/mid game — ganas {{ (detail.avgGameMinLoss - detail.avgGameMinWin).toFixed(0) }} min antes
+              </ng-container>
+              <ng-container *ngIf="detail.avgGameMinWin > detail.avgGameMinLoss">
+                ⚔ Mejor en late game — ganas {{ (detail.avgGameMinWin - detail.avgGameMinLoss).toFixed(0) }} min más tarde
+              </ng-container>
+            </div>
+          </div>
+
+          <!-- Trend cards (3 períodos) -->
+          <div class="cd-trend-cards">
+            <ng-container *ngFor="let p of detail.trendPeriods; let pi = index">
+              <!-- Flecha entre cards -->
+              <div class="cd-trend-connector" *ngIf="pi > 0">
+                <span [class.tconn-up]="p.wr > detail.trendPeriods[pi-1].wr"
+                      [class.tconn-down]="p.wr < detail.trendPeriods[pi-1].wr"
+                      [class.tconn-eq]="p.wr === detail.trendPeriods[pi-1].wr">
+                  {{ p.wr > detail.trendPeriods[pi-1].wr ? '▲' : p.wr < detail.trendPeriods[pi-1].wr ? '▼' : '→' }}
+                  <span class="tconn-delta">
+                    {{ p.wr > detail.trendPeriods[pi-1].wr ? '+' : '' }}{{ p.wr - detail.trendPeriods[pi-1].wr }}%
+                  </span>
+                </span>
+              </div>
+
+              <div class="cd-trend-card"
+                   [class.tcard-up]="pi > 0 && p.wr > detail.trendPeriods[pi-1].wr"
+                   [class.tcard-down]="pi > 0 && p.wr < detail.trendPeriods[pi-1].wr"
+                   [class.tcard-first]="pi === 0">
+                <div class="tcard-period">{{ p.label }}</div>
+                <div class="tcard-wr" [class.wr-good]="p.wr >= 55" [class.wr-bad]="p.wr < 45">{{ p.wr }}%</div>
+                <div class="tcard-wl">{{ p.wins }}V · {{ p.games - p.wins }}D</div>
+                <div class="tcard-divider"></div>
+                <div class="tcard-stat">
+                  <span class="tcard-stat-val">{{ p.avgKda.toFixed(2) }}</span>
+                  <span class="tcard-stat-lab">KDA</span>
+                </div>
+                <div class="tcard-stat">
+                  <span class="tcard-stat-val">{{ p.avgCs.toFixed(1) }}</span>
+                  <span class="tcard-stat-lab">cs/min</span>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── 5. Gráficas ── -->
+      <div class="cd-two-col">
+
+        <div class="cd-section cd-section-half">
+          <div class="cd-sec-hdr">
+            <span class="cd-sec-title">CS/MIN POR PARTIDA</span>
+            <span class="cd-sec-badge">media {{ detail.csAvgVal.toFixed(1) }} · ref {{ rankAvg.cs }}/m</span>
+          </div>
+          <div class="cd-chart-wrap">
+            <div class="cd-y-axis">
+              <span>{{ detail.csMaxVal.toFixed(1) }}</span>
+              <span class="cd-axis-ref">{{ rankAvg.cs }}</span>
+              <span>{{ detail.csMinVal.toFixed(1) }}</span>
+            </div>
+            <div class="cd-bar-chart">
+              <div *ngFor="let g of detail.perGame"
+                   class="cd-bar-col"
+                   [class.cs-good]="g.csGood"
+                   [class.cs-bad]="!g.csGood"
+                   [style.height.%]="g.csPct"
+                   [title]="g.cs.toFixed(1) + ' cs/min · ' + (g.won ? 'Victoria' : 'Derrota')">
+              </div>
+            </div>
+          </div>
+          <div class="cd-chart-legend">
+            <span class="cd-legend-dot cs-good-dot"></span><span class="cd-legend-lab">≥ objetivo</span>
+            <span class="cd-legend-dot cs-bad-dot" style="margin-left:10px"></span><span class="cd-legend-lab">bajo objetivo</span>
+          </div>
+        </div>
+
+        <div class="cd-section cd-section-half">
+          <div class="cd-sec-hdr">
+            <span class="cd-sec-title">MUERTES POR PARTIDA</span>
+            <span class="cd-sec-badge">media {{ detail.deathsAvg.toFixed(1) }} · &lt;5 bueno</span>
+          </div>
+          <div class="cd-chart-wrap">
+            <div class="cd-y-axis">
+              <span>{{ detail.deathsMax }}</span>
+              <span class="cd-axis-ref">5</span>
+              <span>0</span>
+            </div>
+            <div class="cd-bar-chart">
+              <div *ngFor="let g of detail.perGame"
+                   class="cd-bar-col"
+                   [class.d-good]="g.deaths < 5"
+                   [class.d-bad]="g.deaths >= 5"
+                   [style.height.%]="g.deathPct"
+                   [title]="g.deaths + ' muertes · ' + (g.won ? 'Victoria' : 'Derrota')">
+              </div>
+            </div>
+          </div>
+          <div class="cd-chart-legend">
+            <span class="cd-legend-dot d-good-dot"></span><span class="cd-legend-lab">&lt;5 muertes</span>
+            <span class="cd-legend-dot d-bad-dot" style="margin-left:10px"></span><span class="cd-legend-lab">≥5 muertes</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── 5b. META (OP.GG) ── -->
+      <div class="cd-section cd-meta-section">
+        <div class="cd-sec-hdr">
+          <div class="cd-opgg-logo-row">
+            <span class="cd-sec-title">META · OP.GG</span>
+            <span class="cd-opgg-badge">via OP.GG</span>
+            <span class="cd-meta-desc">Datos globales del campeón en todos los servidores: orden de habilidades, campeones que te ganan y que ganas fácil según la comunidad.</span>
+          </div>
+          <span class="cd-sec-badge cd-loading-badge" *ngIf="metaLoading">
+            <span class="cd-build-spin"></span> Consultando…
+          </span>
+          <span class="cd-sec-badge" *ngIf="metaData && !metaLoading">
+            {{ metaData.position }}
+            <ng-container *ngIf="metaData.globalWr"> · {{ metaData.globalWr }}% WR global</ng-container>
+          </span>
+        </div>
+
+        <div class="cd-opgg-error" *ngIf="metaError && !metaLoading">OP.GG no disponible: {{ metaError }}</div>
+
+        <ng-container *ngIf="metaData && !metaLoading">
+          <div class="cd-meta-grid">
+
+            <!-- WR Tú vs Meta -->
+            <div class="cd-meta-card" *ngIf="getMetaComparison() as cmp">
+              <div class="cd-meta-card-title">TÚ vs META GLOBAL</div>
+              <div class="cd-meta-wr-row">
+                <div class="cd-meta-wr-item">
+                  <span class="cd-meta-wr-val"
+                        [class.wr-good]="detail && detail.wr >= 55"
+                        [class.wr-bad]="detail && detail.wr < 45">{{ cmp.personal }}%</span>
+                  <span class="cd-meta-wr-lab">Tu WR</span>
+                </div>
+                <div class="cd-meta-wr-sep">vs</div>
+                <div class="cd-meta-wr-item">
+                  <span class="cd-meta-wr-val">{{ cmp.meta }}%</span>
+                  <span class="cd-meta-wr-lab">Meta global</span>
+                </div>
+                <div class="cd-meta-diff" [class.vs-good]="cmp.good" [class.vs-bad]="!cmp.good">
+                  {{ cmp.diff }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Skill Order -->
+            <div class="cd-meta-card" *ngIf="metaData.skillOrder">
+              <div class="cd-meta-card-title">ORDEN DE HABILIDADES</div>
+              <div class="cd-skill-order">
+                <div *ngFor="let s of formatSkillOrder(metaData.skillOrder)"
+                     class="cd-skill-step"
+                     [class.sk-q]="s.skill==='Q'"
+                     [class.sk-w]="s.skill==='W'"
+                     [class.sk-e]="s.skill==='E'"
+                     [class.sk-r]="s.skill==='R'">
+                  <span class="cd-skill-letter">{{ s.skill }}</span>
+                  <span class="cd-skill-lv">{{ s.level }}</span>
+                </div>
+              </div>
+              <div class="cd-skill-summary" *ngIf="metaData.skillOrder">
+                <span class="cd-skill-priority">
+                  Prioridad:
+                  <ng-container *ngFor="let sk of ['Q','W','E']; let li = last">
+                    <span [class.sk-q]="sk==='Q'" [class.sk-w]="sk==='W'" [class.sk-e]="sk==='E'"
+                          class="cd-skill-badge">{{ sk }}</span>
+                    <span *ngIf="!li"> → </span>
+                  </ng-container>
+                </span>
+                <span class="cd-skill-wr" *ngIf="metaData.skillWr">{{ metaData.skillWr }}% WR · {{ metaData.skillPick }}% pick</span>
+              </div>
+            </div>
+
+            <!-- Counters globales: hardest -->
+            <div class="cd-meta-card" *ngIf="metaData.hardest?.length">
+              <div class="cd-meta-card-title">TE COUNTERA GLOBALMENTE</div>
+              <div class="cd-meta-mu-list">
+                <div *ngFor="let c of metaData.hardest.slice(0,5)" class="cd-meta-mu-row">
+                  <img [src]="riotApi.getChampionIconUrl(c.champion)" class="cd-mu-img" [alt]="c.champion" />
+                  <span class="cd-meta-mu-name">{{ c.champion }}</span>
+                  <span class="cd-meta-mu-wr wr-bad">{{ c.winRate }}%</span>
+                  <span class="cd-meta-mu-pick">pick {{ c.pickRate }}%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Counters globales: easiest -->
+            <div class="cd-meta-card" *ngIf="metaData.easiest?.length">
+              <div class="cd-meta-card-title">LOS GANAS FÁCIL</div>
+              <div class="cd-meta-mu-list">
+                <div *ngFor="let c of metaData.easiest.slice(0,5)" class="cd-meta-mu-row">
+                  <img [src]="riotApi.getChampionIconUrl(c.champion)" class="cd-mu-img" [alt]="c.champion" />
+                  <span class="cd-meta-mu-name">{{ c.champion }}</span>
+                  <span class="cd-meta-mu-wr wr-good">{{ c.winRate }}%</span>
+                  <span class="cd-meta-mu-pick">pick {{ c.pickRate }}%</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </ng-container>
+      </div>
+
+      <!-- ── 6. Runas ── -->
+      <div class="cd-section" *ngIf="primaryRunePaths.length > 0">
+        <div class="cd-sec-hdr">
+          <span class="cd-sec-title">RUNAS</span>
+          <span class="cd-sec-badge">{{ runeGamesTotal }} partidas con datos</span>
+        </div>
+
+        <!-- Primary paths -->
+        <div class="rune-paths-grid">
+          <div *ngFor="let path of primaryRunePaths; let pi = index"
+               class="rune-path-block"
+               [class.rune-path-dim]="pi > 0">
+
+            <!-- Path header -->
+            <div class="rune-path-hdr">
+              <img [src]="riotApi.getRuneIconUrl(path.pathId)" class="rune-path-icon"
+                   [title]="riotApi.getRuneName(path.pathId)" />
+              <span class="rune-path-name">{{ riotApi.getRuneName(path.pathId) }}</span>
+              <span class="rune-path-pct">{{ path.pct }}%</span>
+              <span class="rune-path-wr" [class.wr-good]="path.wr >= 55" [class.wr-bad]="path.wr < 45">
+                {{ path.wr }}%V
+              </span>
+            </div>
+
+            <!-- Slots (keystone + rune rows) -->
+            <div class="rune-slots">
+              <div *ngFor="let slot of path.slots; let si = index"
+                   class="rune-slot-row"
+                   [class.rune-keystone-row]="si === 0">
+                <div *ngFor="let rune of slot.runes"
+                     class="rune-cell"
+                     [class.rune-unused]="rune.count === 0">
+                  <div class="rune-icon-wrap" [class.rune-keystone]="si === 0"
+                       [title]="riotApi.getRuneName(rune.id)">
+                    <img [src]="riotApi.getRuneIconUrl(rune.id)" class="rune-icon"
+                         [class.rune-icon-key]="si === 0" />
+                  </div>
+                  <div class="rune-stats">
+                    <span class="rune-name-short">{{ riotApi.getRuneName(rune.id) }}</span>
+                    <span class="rune-pct">{{ rune.count > 0 ? rune.pct + '%' : '0%' }}</span>
+                    <span class="rune-wr" *ngIf="rune.count > 0"
+                          [class.wr-good]="rune.wr >= 55" [class.wr-bad]="rune.wr < 45">
+                      {{ rune.wr }}%V
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stat shards -->
+        <div class="rune-shards" *ngIf="statShardStats.length > 0">
+          <div class="rune-shard-hdr">
+            <span class="rune-shard-label">FRAGMENTOS DE ESTADÍSTICAS</span>
+            <span class="rune-shard-desc">Las 3 bonificaciones de stats al final de tu página de runas (Ataque · Flex · Defensa)</span>
+          </div>
+          <div class="rune-shard-rows">
+            <div *ngFor="let row of statShardStats; let ri = index" class="rune-shard-row">
+              <span class="rune-shard-pos">{{ ri === 0 ? 'Ataque' : ri === 1 ? 'Flex' : 'Defensa' }}</span>
+              <div *ngFor="let shard of row; let si = index"
+                   class="rune-shard-cell"
+                   [class.rune-unused]="shard.count === 0">
+                <span class="rune-shard-name">{{ getShardLabel(ri, si) }}</span>
+                <span class="rune-shard-pct">{{ shard.count > 0 ? shard.pct + '%' : '0%' }}</span>
+                <span class="rune-shard-wr" *ngIf="shard.count > 0"
+                      [class.wr-good]="shard.wr >= 55" [class.wr-bad]="shard.wr < 45">
+                  {{ shard.wr }}%V
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cd-section" *ngIf="primaryRunePaths.length === 0 && detail">
+        <div class="cd-sec-hdr"><span class="cd-sec-title">RUNAS</span></div>
+        <p class="cd-empty-note">Sin datos de runas — usa el botón "Cachear runas" en la parte superior.</p>
+      </div>
+
+      <!-- ── 7. Matchups ── -->
+      <div class="cd-section"
+           *ngIf="detail.goodMatchups.length > 0 || detail.badMatchups.length > 0">
+        <div class="cd-sec-hdr">
+          <span class="cd-sec-title">MATCHUPS DIRECTOS (SR · mín. 2 partidas)</span>
+          <span class="cd-sec-badge">click para detalles</span>
+        </div>
+        <div class="cd-mu-grid">
+          <div *ngIf="detail.goodMatchups.length > 0">
+            <div class="cd-mu-label cd-mu-good">✦ BUENO CONTRA</div>
+            <div *ngFor="let m of detail.goodMatchups"
+                 class="cd-mu-row cd-mu-clickable"
+                 [class.cd-mu-selected]="matchupOpponent === m.championName"
+                 (click)="toggleMatchupOpponent(m.championName)">
+              <img [src]="riotApi.getChampionIconUrl(m.championName)" class="cd-mu-img" />
+              <span class="cd-mu-name">{{ m.championName }}</span>
+              <span class="cd-mu-games">{{ m.games }}p</span>
+              <span class="cd-mu-wr wr-good">{{ m.wr }}%</span>
+              <span class="cd-mu-delta vs-good">+{{ m.delta }}%</span>
+              <span class="cd-mu-arrow">›</span>
+            </div>
+          </div>
+          <div *ngIf="detail.badMatchups.length > 0">
+            <div class="cd-mu-label cd-mu-bad">✦ MALO CONTRA</div>
+            <div *ngFor="let m of detail.badMatchups"
+                 class="cd-mu-row cd-mu-clickable"
+                 [class.cd-mu-selected]="matchupOpponent === m.championName"
+                 (click)="toggleMatchupOpponent(m.championName)">
+              <img [src]="riotApi.getChampionIconUrl(m.championName)" class="cd-mu-img" />
+              <span class="cd-mu-name">{{ m.championName }}</span>
+              <span class="cd-mu-games">{{ m.games }}p</span>
+              <span class="cd-mu-wr wr-bad">{{ m.wr }}%</span>
+              <span class="cd-mu-delta vs-bad">{{ m.delta }}%</span>
+              <span class="cd-mu-arrow">›</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cd-section"
+           *ngIf="detail.goodMatchups.length === 0 && detail.badMatchups.length === 0">
+        <p class="cd-no-mu-text">No hay suficientes datos de matchup — se necesitan ≥2 partidas contra el mismo rival en SR</p>
+      </div>
+
+      <!-- ── 8. Comparativa EUW (rediseñada) ── -->
+      <div class="cd-section cd-euw-section" *ngIf="detail">
+
+        <!-- Header -->
+        <div class="cd-euw-hdr-row">
+          <div>
+            <span class="cd-sec-title">TÚ VS SERVIDOR EUW</span>
+            <span class="cd-euw-subtitle">
+              {{ detail.games }}p analizadas ·
+              Referencia
+              <strong>{{ rankAvg.cs > 8 ? 'Diamond+' : rankAvg.cs > 7.5 ? 'Emerald' : rankAvg.cs > 7 ? 'Platinum' : rankAvg.cs > 6 ? 'Gold' : 'Silver' }}</strong>
+              EUW
+              <ng-container *ngIf="metaData?.globalWr"> · Meta WR {{ metaData.globalWr }}% (OP.GG)</ng-container>
+            </span>
+          </div>
+          <!-- Gap pills -->
+          <div class="cd-euw-pills">
+            <span class="cd-euw-pill euw-pill-bad" *ngIf="getWorstStat()">
+              ⚠ Mejorar: {{ getWorstStat() }}
+            </span>
+            <span class="cd-euw-pill euw-pill-good" *ngIf="getBestStat()">
+              ✦ Fuerte: {{ getBestStat() }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Body: radar + stat cards -->
+        <div class="cd-euw-body">
+
+          <!-- Radar chart (SVG) -->
+          <div class="cd-radar-wrap">
+            <svg viewBox="0 0 240 240" class="cd-radar-svg">
+              <!-- Concentric rings -->
+              <polygon *ngFor="let f of [0.25, 0.5, 0.75, 1.0]"
+                       [attr.points]="getRadarRingPoints(f)"
+                       fill="none" stroke="rgba(100,160,200,.15)" stroke-width="1"/>
+
+              <!-- Axis lines -->
+              <ng-container *ngFor="let i of [0,1,2,3,4]">
+                <line [attr.x1]="RADAR_CX" [attr.y1]="RADAR_CY"
+                      [attr.x2]="getRadarAxisEnd(i).x"
+                      [attr.y2]="getRadarAxisEnd(i).y"
+                      stroke="rgba(100,160,200,.2)" stroke-width="1"/>
+                <text [attr.x]="getRadarLabelPos(i).x"
+                      [attr.y]="getRadarLabelPos(i).y"
+                      text-anchor="middle" dominant-baseline="middle"
+                      fill="#4a7090" font-size="9" font-weight="700"
+                      font-family="'Exo 2',Inter,sans-serif">
+                  {{ RADAR_LABELS[i] }}
+                </text>
+              </ng-container>
+
+              <!-- EUW polygon (reference) -->
+              <polygon [attr.points]="getEuwRadarPolygon()"
+                       fill="rgba(180,200,220,.08)"
+                       stroke="rgba(130,185,215,.4)"
+                       stroke-width="1.5" stroke-dasharray="4 3"/>
+
+              <!-- My polygon -->
+              <polygon [attr.points]="getMyRadarPolygon()"
+                       fill="rgba(79,180,216,.14)"
+                       stroke="#4fb4d8"
+                       stroke-width="2"/>
+
+              <!-- My dots on each axis -->
+              <ng-container *ngFor="let i of [0,1,2,3,4]">
+                <circle [attr.cx]="getRadarDotPos(i, 'mine').x"
+                        [attr.cy]="getRadarDotPos(i, 'mine').y"
+                        r="4" fill="#4fb4d8" stroke="#0a1520" stroke-width="1.5"/>
+              </ng-container>
+
+              <!-- Legend -->
+              <rect x="10" y="218" width="10" height="3" rx="1" fill="#4fb4d8"/>
+              <text x="24" y="222" fill="#4a7090" font-size="8" font-family="Inter,sans-serif">Tú</text>
+              <rect x="55" y="218" width="10" height="3" rx="1" fill="rgba(130,185,215,.4)" stroke="rgba(130,185,215,.4)" stroke-dasharray="2 1"/>
+              <text x="69" y="222" fill="#4a7090" font-size="8" font-family="Inter,sans-serif">EUW ref.</text>
+            </svg>
+          </div>
+
+          <!-- Stat cards -->
+          <div class="cd-euw-cards">
+            <div *ngFor="let row of getEuwComparison()"
+                 class="cd-euw-card"
+                 [class.euw-card-good]="row.good"
+                 [class.euw-card-bad]="!row.good">
+
+              <!-- Card header -->
+              <div class="euw-card-hdr">
+                <span class="euw-card-icon">{{ row.icon }}</span>
+                <span class="euw-card-label">{{ row.label }}</span>
+                <span class="euw-card-diff"
+                      [class.vs-good]="row.good"
+                      [class.vs-bad]="!row.good">{{ row.diff }}</span>
+              </div>
+
+              <!-- Big values -->
+              <div class="euw-card-vals">
+                <div class="euw-val-mine">
+                  <span class="euw-val-num" [class.wr-good]="row.good" [class.wr-bad]="!row.good">{{ row.mine }}</span>
+                  <span class="euw-val-lab">Tú</span>
+                </div>
+                <div class="euw-val-sep">vs</div>
+                <div class="euw-val-euw">
+                  <span class="euw-val-num-euw">{{ row.euw }}</span>
+                  <span class="euw-val-lab">EUW</span>
+                </div>
+                <span class="euw-percentile" [class.pct-good]="row.good" [class.pct-bad]="!row.good">
+                  {{ row.percentile }}
+                </span>
+              </div>
+
+              <!-- Dual progress bar -->
+              <div class="euw-dual-bar">
+                <div class="euw-bar-bg">
+                  <!-- EUW reference -->
+                  <div class="euw-bar-ref" [style.width.%]="row.pctEuw"></div>
+                  <!-- Mine on top -->
+                  <div class="euw-bar-mine"
+                       [style.width.%]="row.pctMine"
+                       [class.ebm-good]="row.good"
+                       [class.ebm-bad]="!row.good"></div>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <p class="euw-card-desc">{{ row.desc }}</p>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── 9. Analizador de items por rival ── -->
+      <div class="cd-section cd-item-anal-section">
+        <div class="cd-sec-hdr">
+          <span class="cd-sec-title">ITEM → RIVAL</span>
+          <span class="cd-sec-badge">Haz clic en un objeto para ver contra qué rivales funciona mejor</span>
+        </div>
+
+        <!-- Item icon grid -->
+        <div class="cd-ia-item-grid">
+          <div *ngFor="let it of getChampItems()"
+               class="cd-ia-item-cell"
+               [class.cd-ia-item-selected]="itemAnalItemId == it.id"
+               [title]="getItemTooltip(it.id)"
+               (click)="selectItemForAnalysis(it.id)">
+            <img [src]="riotApi.getItemIconUrl(it.id)" class="cd-ia-item-icon" [alt]="''+it.id" />
+            <span class="cd-ia-item-cnt">×{{ it.count }}</span>
+          </div>
+        </div>
+
+        <div class="cd-ia-error" *ngIf="itemAnalError">{{ itemAnalError }}</div>
+
+        <ng-container *ngIf="itemAnalResult">
+
+          <!-- Obligatorio contra -->
+          <div class="cd-ia-mandatory" *ngIf="getMandatoryOpponents().length > 0">
+            <div class="cd-ia-mandatory-title">✦ OBLIGATORIO CONTRA (WR ≥ 65%)</div>
+            <div class="cd-ia-mandatory-list">
+              <div *ngFor="let m of getMandatoryOpponents()" class="cd-ia-mandatory-row">
+                <img [src]="riotApi.getChampionIconUrl(m.enemy)" class="cd-ia-champ-icon" [alt]="m.enemy" />
+                <span class="cd-ia-mandatory-name">{{ m.enemy }}</span>
+                <span class="cd-ia-wr wr-good">{{ m.wr }}%</span>
+                <span class="cd-ia-games">{{ m.games }}p</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Todos los matchups -->
+          <div class="cd-ia-empty" *ngIf="itemAnalResult.matchups.length === 0">
+            No has jugado con este objeto contra ningún rival en carril
+          </div>
+          <div class="cd-ia-results" *ngIf="itemAnalResult.matchups.length > 0">
+            <div class="cd-ia-hdr">
+              <span>Rival</span><span>Partidas</span><span>WR con item</span><span>Barra</span>
+            </div>
+            <div *ngFor="let m of itemAnalResult.matchups" class="cd-ia-row"
+                 [class.ia-row-good]="m.wr >= 55" [class.ia-row-bad]="m.wr < 45">
+              <div class="cd-ia-champ">
+                <img [src]="riotApi.getChampionIconUrl(m.enemy)" class="cd-ia-champ-icon" [alt]="m.enemy" />
+                <span>{{ m.enemy }}</span>
+              </div>
+              <span class="cd-ia-games">{{ m.games }}p · {{ m.wins }}V</span>
+              <span class="cd-ia-wr" [class.wr-good]="m.wr >= 55" [class.wr-bad]="m.wr < 45">{{ m.wr }}%</span>
+              <div class="cd-ia-bar-wrap">
+                <div class="cd-ia-bar-fill"
+                     [style.width.%]="m.wr"
+                     [class.ibf-good]="m.wr >= 55"
+                     [class.ibf-bad]="m.wr < 45"
+                     [class.ibf-mid]="m.wr >= 45 && m.wr < 55"></div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+    </ng-container>
+  </div>
+
+</div>
