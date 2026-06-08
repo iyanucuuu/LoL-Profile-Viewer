@@ -1,11 +1,16 @@
 require('dotenv').config();
 const express    = require('express');
+const helmet     = require('helmet');
 const cors       = require('cors');
 const axios      = require('axios');
 const cheerio    = require('cheerio');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
+// Cabeceras de seguridad (X-Content-Type-Options, X-Frame-Options, HSTS, etc.).
+// Se desactiva CSP por defecto porque la API solo sirve JSON/SSE, no HTML,
+// y una CSP pensada para páginas podría interferir con el streaming.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/ }));
 app.use(express.json());
 
